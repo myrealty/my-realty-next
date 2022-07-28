@@ -1,0 +1,15 @@
+@media (max-width: 576px) {
+  .logo-container {
+    display: none;
+  }
+
+  .show-properties-amount {
+    order: -1;
+  }
+}
+
+@media (min-width: 577px) {
+  .return-container {
+    display: none;
+  }
+}
