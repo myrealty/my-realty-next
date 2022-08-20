@@ -1,0 +1,166 @@
+@import '~antd/dist/antd.css';
+
+:root {
+  --primary: #006dff;
+  --white: #ffffff;
+  --black: #000000;
+}
+
+::-webkit-scrollbar {
+  -webkit-appearance: none;
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 5px;
+  background: #c3c3c3;
+}
+
+p {
+  font-size: 16px;
+}
+
+svg {
+  height: auto;
+  max-width: 100%;
+}
+
+/* ! ****** Utilities ****** */
+.container {
+  margin: 0px auto;
+  max-width: 1200px;
+  width: 90%;
+}
+
+/* ! ******  ant design ****** */
+.ant-message {
+  z-index: 3000;
+}
+
+.ant-spin-nested-loading,
+.ant-spin-container {
+  width: 100%;
+  height: 100%;
+}
+
+.ant-input[disabled],
+.ant-select-disabled .ant-select-selection-item {
+  color: rgba(0, 0, 0, 0.7) !important;
+}
+
+.ant-form-item-label > label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  color: #546279;
+  font-size: 12px;
+}
+
+.ant-btn-primary {
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+  text-shadow: 0 -1px 0 rgb(0 0 0 / 12%);
+  box-shadow: 0 2px 0 rgb(0 0 0 / 5%);
+}
+
+.ant-modal-mask,
+.ant-modal-wrap {
+  z-index: 3000;
+}
+
+.ant-carousel .slick-prev,
+.ant-carousel .slick-next {
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  height: 30px;
+  padding: 8px;
+  transition: 0.3s ease background-color;
+  width: 30px;
+  z-index: 1000;
+}
+
+.info-carousel-container .ant-carousel .slick-prev,
+.info-carousel-container .ant-carousel .slick-next {
+  background-color: rgba(255, 255, 255, 0.8);
+  border-radius: 50%;
+  height: 15px;
+  padding: 4px;
+  transition: 0.3s ease background-color;
+  width: 15px;
+  z-index: 1000;
+}
+
+@media (min-width: 36rem) {
+  .info-carousel-container .ant-carousel .slick-prev,
+  .info-carousel-container .ant-carousel .slick-next {
+    height: 30px;
+    padding: 8px;
+    width: 30px;
+  }
+}
+
+.ant-carousel .slick-prev {
+  left: 15px;
+}
+
+.ant-carousel .slick-next {
+  right: 15px;
+}
+
+.ant-carousel .slick-prev:hover,
+.ant-carousel .slick-next:hover {
+  background-color: rgba(255, 255, 255, 1);
+}
+
+.ant-carousel .slick-prev svg,
+.ant-carousel .slick-next svg {
+  width: 100%;
+  height: 100%;
+  color: var(--black);
+}
+
+.ant-carousel .slick-dots {
+  pointer-events: none;
+}
+
+.ant-input-number-group-addon {
+  padding: 0;
+}
+
+.input-number input {
+  height: 50px;
+  font-size: clamp(1rem, calc(0.92rem + 0.43vw), 1.25rem);
+  font-weight: bold;
+  text-align: center;
+}
+
+.input-number .ant-input-number-group-addon button {
+  height: 50px;
+  width: 50px;
+}
+
+@media (max-width: 575px) {
+  .input-number input {
+    height: 30px;
+  }
+
+  .input-number .ant-input-number-group-addon button {
+    height: 30px;
+    width: 30px;
+  }
+}
+
+.ant-badge {
+  display: block;
+}
+
+.ant-skeleton-element .ant-skeleton-input,
+.ant-skeleton-element .ant-skeleton-button {
+  min-width: 100% !important;
+}
+
+.ant-spin-nested-loading > div > .ant-spin {
+  max-height: 100%;
+}
