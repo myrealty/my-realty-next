@@ -1,6 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import Image from 'next/image';
+// axios
+import { getCountAllListing } from 'api/listing';
+// components
+import { FilterMapWithNoSSR } from 'components/maps/FilterMap';
+import { handleError, MessageTypes } from 'helpers/handlers';
+// data
+import {
+  accommodationType,
+  accommodationTypeString,
+  amenitiesData,
+  amenitiesDataString,
+  floorPlanData,
+  propertyTypeGroup,
+  propertyTypeGroupString,
+} from 'data/listing';
+// helpers
+import { debounce } from 'helpers/debounce';
 // styles
 import {
   Button,
@@ -13,63 +29,42 @@ import {
   Typography,
 } from 'antd';
 import { MinusCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
-import { colors } from 'styles/variables';
+import { colors, breakPoints } from 'styles/variables';
 import { addOpacity } from 'styles/utils';
-// http functions
-import { getCountAllListing } from 'api/listing';
-// helpers
-import { shimmer } from 'helpers/shimmerEffect';
-import { toBase64 } from 'helpers/toBase64';
-import { debounce } from 'helpers/debounce';
-// data
-import {
-  accommodationType,
-  accommodationTypeString,
-  amenitiesData,
-  amenitiesDataString,
-  floorPlanData,
-  propertyTypeGroup,
-  propertyTypeGroupString,
-} from 'data/listing';
-// components
-import { MapLocationWithNoSSR } from 'components/MapLocation';
-import { handleError, MessageTypes } from 'helpers/handlers';
 
 interface Props {
   setShowModal: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 interface FiltersType {
-  priceRange: {
-    lowestPrice: number;
-    highestPrice: number;
-  };
-  accommodationType: string[];
-  spaces: {
-    living_rooms: number;
-    kitchens: number;
-    dining_rooms: number;
-    rooms: number;
-    bathrooms: number;
-  };
-  propertyTypeGroup: string[];
+  q: string;
+  min_price: number;
+  max_price: number;
+  has_min_price: boolean;
+  has_max_price: boolean;
+  accommodation_type: string[];
+  living_rooms: number;
+  kitchens: number;
+  dining_rooms: number;
+  rooms: number;
+  bathrooms: number;
+  property_type_group: string[];
   amenities: string[];
 }
 
 const initFiltersState: FiltersType = {
-  priceRange: {
-    lowestPrice: 100,
-    highestPrice: 100_000_000,
-  },
-  accommodationType: [],
-  spaces: {
-    living_rooms: 0,
-    kitchens: 0,
-    dining_rooms: 0,
-    rooms: 0,
-    bathrooms: 0,
-  },
-  propertyTypeGroup: [],
+  q: '',
+  min_price: 100,
+  max_price: 100_000_000,
+  has_min_price: false,
+  has_max_price: false,
+  accommodation_type: [],
+  living_rooms: 0,
+  kitchens: 0,
+  dining_rooms: 0,
+  rooms: 0,
+  bathrooms: 0,
+  property_type_group: [],
   amenities: [],
 };
 
@@ -94,12 +89,15 @@ export default function FiltersModal({ setShowModal }: Props) {
   const [showServices, setShowServices] = useState(false);
   const [showSpaces, setShowSpaces] = useState(false);
   const [runFilterEffect, setRunFilterEffect] = useState(false);
-  const [isRemoveRilters, setIsRemoveRilters] = useState(true);
+  const [isRemoveFilters, setIsRemoveFilters] = useState(false);
 
   useEffect(() => {
     if (!router.isReady) return;
-    setRunFilterEffect(true);
-    if (!Object.keys(router.query).length) return;
+    if (!Object.keys(router.query).length) {
+      setRunFilterEffect(true);
+      setIsRemoveFilters(true);
+      return;
+    }
 
     const filterObj = structuredClone(initFiltersState);
     const locationObj: any = {};
@@ -108,6 +106,10 @@ export default function FiltersModal({ setShowModal }: Props) {
     for (const key in query) {
       const element = query[key];
 
+      if (key === 'q') {
+        filterObj.q = element as string;
+      }
+
       if (
         key === 'min_price' &&
         !isNaN(Number(element)) &&
@@ -115,11 +117,12 @@ export default function FiltersModal({ setShowModal }: Props) {
       ) {
         if ('max_price' in query) {
           if (Number(element) <= Number(query.max_price)) {
-            filterObj.priceRange.lowestPrice = Number(element);
+            filterObj.min_price = Number(element);
           }
         } else {
-          filterObj.priceRange.lowestPrice = Number(element);
+          filterObj.min_price = Number(element);
         }
+        filterObj.has_min_price = true;
       }
       if (
         key === 'max_price' &&
@@ -128,11 +131,12 @@ export default function FiltersModal({ setShowModal }: Props) {
       ) {
         if ('min_price' in query) {
           if (Number(element) >= Number(query.min_price)) {
-            filterObj.priceRange.highestPrice = Number(element);
+            filterObj.max_price = Number(element);
           }
         } else {
-          filterObj.priceRange.highestPrice = Number(element);
+          filterObj.max_price = Number(element);
         }
+        filterObj.has_max_price = true;
       }
 
       if (key === 'city' || key === 'state' || key === 'country') {
@@ -154,7 +158,7 @@ export default function FiltersModal({ setShowModal }: Props) {
             arr.push(type);
           }
         }
-        filterObj.accommodationType = arr;
+        filterObj.accommodation_type = arr;
       }
 
       if (
@@ -164,8 +168,8 @@ export default function FiltersModal({ setShowModal }: Props) {
         key === 'rooms' ||
         key === 'bathrooms'
       ) {
-        if (!isNaN(Number(element)) && Number(element) >= 0) {
-          filterObj.spaces[key] = Number(element);
+        if (!isNaN(Number(element)) && Number(element) > 0) {
+          filterObj[key] = Number(element);
         }
       }
 
@@ -178,7 +182,7 @@ export default function FiltersModal({ setShowModal }: Props) {
             arr.push(type);
           }
         }
-        filterObj.propertyTypeGroup = arr;
+        filterObj.property_type_group = arr;
       }
 
       if (key === 'amenities') {
@@ -196,6 +200,7 @@ export default function FiltersModal({ setShowModal }: Props) {
 
     setFilters(filterObj);
     setLocation(Object.keys(locationObj).length ? locationObj : null);
+    setRunFilterEffect(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.query]);
 
@@ -204,47 +209,70 @@ export default function FiltersModal({ setShowModal }: Props) {
     (async () => {
       try {
         let query = '';
-        if (!isRemoveRilters) {
+        if (!isRemoveFilters) {
           for (const key in filters) {
-            if (key === 'priceRange') {
-              const priceRange = filters[key];
-              query += `min_price=${priceRange.lowestPrice}&max_price=${priceRange.highestPrice}`;
+            if (key === 'q' && filters[key].length) {
+              query += `${query.length ? '&' : ''}q=${filters[key]}`;
             }
-            if (key === 'accommodationType' && filters[key].length) {
-              query += `&accommodation_type=${filters[key]}`;
+
+            if (key === 'min_price' && filters.has_min_price) {
+              query += `${query.length ? '&' : ''}min_price=${filters[key]}`;
             }
-            if (key === 'spaces') {
-              const spaces = filters[key];
-              for (const key in spaces) {
-                // @ts-ignore
-                const value = spaces[key];
-                if (value > 0) {
-                  query += `&${key}=${value}`;
-                }
-              }
+            if (key === 'max_price' && filters.has_max_price) {
+              query += `&max_price=${filters[key]}`;
             }
-            if (key === 'propertyTypeGroup' && filters[key].length) {
-              query += `&property_type_group=${filters[key]}`;
+
+            if (key === 'accommodation_type' && filters[key].length) {
+              query += `${query.length ? '&' : ''}accommodation_type=${
+                filters[key]
+              }`;
+            }
+
+            if (key === 'living_rooms' && filters[key] > 0) {
+              query += `${query.length ? '&' : ''}living_rooms=${filters[key]}`;
+            }
+            if (key === 'kitchens' && filters[key] > 0) {
+              query += `${query.length ? '&' : ''}kitchens=${filters[key]}`;
+            }
+            if (key === 'dining_rooms' && filters[key] > 0) {
+              query += `${query.length ? '&' : ''}dining_rooms=${filters[key]}`;
+            }
+            if (key === 'rooms' && filters[key] > 0) {
+              query += `${query.length ? '&' : ''}rooms=${filters[key]}`;
+            }
+            if (key === 'bathrooms' && filters[key] > 0) {
+              query += `${query.length ? '&' : ''}bathrooms=${filters[key]}`;
+            }
+
+            if (key === 'property_type_group' && filters[key].length) {
+              query += `${query.length ? '&' : ''}property_type_group=${
+                filters[key]
+              }`;
             }
             if (key === 'amenities' && filters[key].length) {
-              query += `&amenities=${filters[key]}`;
+              query += `${query.length ? '&' : ''}amenities=${filters[key]}`;
             }
           }
 
           if (location) {
             const { city, state, country, latitude, longitude } = location;
-            if (city) query += `&city=${city}`;
-            if (state) query += `&state=${state}`;
-            if (country) query += `&country=${country}`;
-            if (latitude) query += `&lat=${latitude}`;
-            if (longitude) query += `&lng=${longitude}`;
+            if (country) {
+              if (city) query += `${query.length ? '&' : ''}city=${city}`;
+              if (state) query += `${query.length ? '&' : ''}state=${state}`;
+              if (country)
+                query += `${query.length ? '&' : ''}country=${country}`;
+              if (latitude)
+                query += `${query.length ? '&' : ''}lat=${latitude}`;
+              if (longitude)
+                query += `${query.length ? '&' : ''}lng=${longitude}`;
+            }
           }
         }
 
         const { data } = await getCountAllListing({
           query,
         });
-        setIsRemoveRilters(false);
+        setIsRemoveFilters(false);
         setQueryStringParams(query);
         setPropertiesAmount(data.total);
       } catch (err: any) {
@@ -256,14 +284,11 @@ export default function FiltersModal({ setShowModal }: Props) {
 
   const search = () => {
     setShowModal(false);
-    const params = new URLSearchParams(window.location.search);
-    router.push(
-      params.has('q')
-        ? `/?q=${params.get('q')}&${queryStringParams}`
-        : queryStringParams.length
-        ? `/?${queryStringParams}`
-        : '/'
-    );
+    let URI = '/';
+    if (queryStringParams.length) {
+      URI += `?${queryStringParams}`;
+    }
+    router.push(URI);
   };
 
   const SpacesReactNodes = (
@@ -281,14 +306,14 @@ export default function FiltersModal({ setShowModal }: Props) {
               block
               type={
                 // @ts-ignore
-                filters.spaces[data.name] === 0 ? 'primary' : 'default'
+                filters[data.name] === 0 ? 'primary' : 'default'
               }
-              onClick={() => {
+              onClick={debounce(() => {
                 setFilters((state) => ({
                   ...state,
-                  spaces: { ...state.spaces, [data.name]: 0 },
+                  [data.name]: 0,
                 }));
-              }}
+              }, 500)}
             >
               Cualquiera
             </Button>
@@ -300,7 +325,7 @@ export default function FiltersModal({ setShowModal }: Props) {
               min={0}
               max={10}
               // @ts-ignore
-              value={filters.spaces[data.name]}
+              value={filters[data.name]}
               style={{ width: '100%' }}
               className="input-number"
               addonBefore={
@@ -308,20 +333,15 @@ export default function FiltersModal({ setShowModal }: Props) {
                   type="primary"
                   icon={<MinusCircleOutlined />}
                   size="large"
-                  onClick={() => {
-                    setFilters((state) => {
-                      return {
-                        ...state,
-                        spaces: {
-                          ...state.spaces,
-                          // @ts-ignore
-                          [data.name]: state.spaces[data.name] - 1,
-                        },
-                      };
-                    });
-                  }}
+                  onClick={debounce(() => {
+                    setFilters((state) => ({
+                      ...state,
+                      // @ts-ignore
+                      [data.name]: state[data.name] - 1,
+                    }));
+                  }, 500)}
                   // @ts-ignore
-                  disabled={filters.spaces[data.name] <= 0}
+                  disabled={filters[data.name] <= 0}
                 />
               }
               addonAfter={
@@ -329,34 +349,29 @@ export default function FiltersModal({ setShowModal }: Props) {
                   type="primary"
                   icon={<PlusCircleOutlined />}
                   size="large"
-                  onClick={() => {
-                    setFilters((state) => {
-                      return {
-                        ...state,
-                        spaces: {
-                          ...state.spaces,
-                          // @ts-ignore
-                          [data.name]: state.spaces[data.name] + 1,
-                        },
-                      };
-                    });
-                  }}
+                  onClick={debounce(() => {
+                    setFilters((state) => ({
+                      ...state,
+                      // @ts-ignore
+                      [data.name]: state[data.name] + 1,
+                    }));
+                  }, 500)}
                   // @ts-ignore
-                  disabled={filters.spaces[data.name] >= 10}
+                  disabled={filters[data.name] >= 10}
                 />
               }
               // @ts-ignore
-              onChange={(value: number | null) => {
+              onChange={debounce((value: number | null) => {
                 setFilters((state) => {
-                  return {
-                    ...state,
-                    spaces: {
-                      ...state.spaces,
-                      [data.name]: !value || value < 0 ? 0 : value,
-                    },
-                  };
+                  let dataValue = 0;
+
+                  if (value !== null && value >= 0 && value <= 10) {
+                    dataValue = value;
+                  }
+
+                  return { ...state, [data.name]: dataValue };
                 });
-              }}
+              }, 200)}
             />
           </Col>
         </Row>
@@ -394,18 +409,14 @@ export default function FiltersModal({ setShowModal }: Props) {
                     ...JSON.parse(JSON.stringify(initFiltersState)),
                   }));
                   setLocation(null);
-                  setIsRemoveRilters(true);
-                }, 800)}
+                  setIsRemoveFilters(true);
+                }, 500)}
               >
                 Quitar los filtros
               </Button>
             </Col>
             <Col xs={24} sm={12} className="show-properties-amount">
-              <Button
-                type="primary"
-                block
-                onClick={debounce(() => search(), 800)}
-              >
+              <Button type="primary" block onClick={debounce(search, 500)}>
                 Mostrar {propertiesAmount} propiedades
               </Button>
             </Col>
@@ -421,8 +432,8 @@ export default function FiltersModal({ setShowModal }: Props) {
               controls={false}
               size="large"
               min={100}
-              max={filters.priceRange.highestPrice}
-              value={filters.priceRange.lowestPrice}
+              max={filters.max_price}
+              value={filters.min_price}
               style={{ width: '100%' }}
               className="input-number"
               formatter={(value) =>
@@ -435,22 +446,18 @@ export default function FiltersModal({ setShowModal }: Props) {
                   type="primary"
                   icon={<MinusCircleOutlined />}
                   size="large"
-                  onClick={() => {
-                    setFilters((state) => {
-                      const { priceRange } = state;
-                      return {
-                        ...state,
-                        priceRange: {
-                          ...priceRange,
-                          lowestPrice:
-                            priceRange.lowestPrice - 100 <= 100
-                              ? 100
-                              : priceRange.lowestPrice - 100,
-                        },
-                      };
-                    });
-                  }}
-                  disabled={filters.priceRange.lowestPrice <= 100}
+                  onClick={debounce(() => {
+                    setFilters((state) => ({
+                      ...state,
+                      min_price:
+                        state.min_price - 100 <= 100
+                          ? 100
+                          : state.min_price - 100,
+                      has_min_price: true,
+                      has_max_price: true,
+                    }));
+                  }, 200)}
+                  disabled={filters.min_price <= 100}
                 />
               }
               addonAfter={
@@ -458,39 +465,28 @@ export default function FiltersModal({ setShowModal }: Props) {
                   type="primary"
                   icon={<PlusCircleOutlined />}
                   size="large"
-                  onClick={() => {
-                    setFilters((state) => {
-                      const { priceRange } = state;
-                      return {
-                        ...state,
-                        priceRange: {
-                          ...priceRange,
-                          lowestPrice:
-                            priceRange.lowestPrice + 100 >=
-                            priceRange.highestPrice
-                              ? priceRange.highestPrice
-                              : priceRange.lowestPrice + 100,
-                        },
-                      };
-                    });
-                  }}
-                  disabled={
-                    filters.priceRange.lowestPrice >=
-                    filters.priceRange.highestPrice
-                  }
+                  onClick={debounce(() => {
+                    setFilters((state) => ({
+                      ...state,
+                      min_price:
+                        state.min_price + 100 >= state.max_price
+                          ? state.max_price
+                          : state.min_price + 100,
+                      has_min_price: true,
+                      has_max_price: true,
+                    }));
+                  }, 200)}
+                  disabled={filters.min_price >= filters.max_price}
                 />
               }
-              onChange={(value: number | null) => {
-                setFilters((state) => {
-                  return {
-                    ...state,
-                    priceRange: {
-                      ...state.priceRange,
-                      lowestPrice: !value || value < 100 ? 100 : value,
-                    },
-                  };
-                });
-              }}
+              onChange={debounce((value: number | null) => {
+                setFilters((state) => ({
+                  ...state,
+                  min_price: !value || value < 100 ? 100 : value,
+                  has_min_price: true,
+                  has_max_price: true,
+                }));
+              }, 200)}
             />
           </Col>
           <Col xs={24} lg={12}>
@@ -498,8 +494,8 @@ export default function FiltersModal({ setShowModal }: Props) {
             <InputNumber
               controls={false}
               size="large"
-              min={filters.priceRange.lowestPrice}
-              value={filters.priceRange.highestPrice}
+              min={filters.min_price}
+              value={filters.max_price}
               style={{ width: '100%' }}
               className="input-number"
               formatter={(value) =>
@@ -512,26 +508,18 @@ export default function FiltersModal({ setShowModal }: Props) {
                   type="primary"
                   icon={<MinusCircleOutlined />}
                   size="large"
-                  onClick={() => {
-                    setFilters((state) => {
-                      const { priceRange } = state;
-                      return {
-                        ...state,
-                        priceRange: {
-                          ...priceRange,
-                          highestPrice:
-                            priceRange.highestPrice - 100 <=
-                            priceRange.lowestPrice
-                              ? priceRange.lowestPrice
-                              : priceRange.highestPrice - 100,
-                        },
-                      };
-                    });
-                  }}
-                  disabled={
-                    filters.priceRange.highestPrice <=
-                    filters.priceRange.lowestPrice
-                  }
+                  onClick={debounce(() => {
+                    setFilters((state) => ({
+                      ...state,
+                      max_price:
+                        state.max_price - 100 <= state.min_price
+                          ? state.min_price
+                          : state.max_price - 100,
+                      has_min_price: true,
+                      has_max_price: true,
+                    }));
+                  }, 200)}
+                  disabled={filters.max_price <= filters.min_price}
                 />
               }
               addonAfter={
@@ -539,33 +527,25 @@ export default function FiltersModal({ setShowModal }: Props) {
                   type="primary"
                   icon={<PlusCircleOutlined />}
                   size="large"
-                  onClick={() => {
-                    setFilters((state) => {
-                      return {
-                        ...state,
-                        priceRange: {
-                          ...state.priceRange,
-                          highestPrice: state.priceRange.highestPrice + 100,
-                        },
-                      };
-                    });
-                  }}
+                  onClick={debounce(() => {
+                    setFilters((state) => ({
+                      ...state,
+                      max_price: state.max_price + 100,
+                      has_min_price: true,
+                      has_max_price: true,
+                    }));
+                  }, 200)}
                 />
               }
-              onChange={(value: number | null) => {
-                setFilters((state) => {
-                  return {
-                    ...state,
-                    priceRange: {
-                      ...state.priceRange,
-                      highestPrice:
-                        !value || value < state.priceRange.lowestPrice
-                          ? state.priceRange.lowestPrice
-                          : value,
-                    },
-                  };
-                });
-              }}
+              onChange={debounce((value: number | null) => {
+                setFilters((state) => ({
+                  ...state,
+                  max_price:
+                    !value || value < state.min_price ? state.min_price : value,
+                  has_min_price: true,
+                  has_max_price: true,
+                }));
+              }, 200)}
             />
           </Col>
         </Row>
@@ -573,7 +553,7 @@ export default function FiltersModal({ setShowModal }: Props) {
         <Divider />
 
         <h2>Ubicación:</h2>
-        <MapLocationWithNoSSR
+        <FilterMapWithNoSSR
           locationState={location}
           setLocationState={setLocation}
         />
@@ -585,23 +565,23 @@ export default function FiltersModal({ setShowModal }: Props) {
           {accommodationType.map((type, i) => (
             <Col key={`${type.value}-${i}`} xs={24} sm={12} md={8}>
               <Checkbox
-                checked={filters.accommodationType.includes(type.value)}
-                onChange={() => {
+                checked={filters.accommodation_type.includes(type.value)}
+                onChange={debounce(() => {
                   setFilters((state) => {
-                    const includeType = filters.accommodationType.includes(
+                    const includeType = state.accommodation_type.includes(
                       type.value
                     );
 
                     return {
                       ...state,
-                      accommodationType: includeType
-                        ? state.accommodationType.filter(
+                      accommodation_type: includeType
+                        ? state.accommodation_type.filter(
                             (value) => value !== type.value
                           )
-                        : [...state.accommodationType, type.value],
+                        : [...state.accommodation_type, type.value],
                     };
                   });
-                }}
+                }, 500)}
               >
                 <p>{type.name}</p>
                 <Typography.Text type="secondary">
@@ -643,38 +623,30 @@ export default function FiltersModal({ setShowModal }: Props) {
             <Col key={`${property.name}-${i}`} xs={24} sm={12} xl={6}>
               <figure
                 style={{
-                  ...(filters.propertyTypeGroup.includes(property.value) && {
-                    borderColor: colors.black,
-                  }),
+                  borderColor: filters.property_type_group.includes(
+                    property.value
+                  )
+                    ? colors.black
+                    : undefined,
                 }}
-                onClick={() => {
+                onClick={debounce(() => {
                   setFilters((state) => {
-                    const includeGroup = filters.propertyTypeGroup.includes(
+                    const includeGroup = state.property_type_group.includes(
                       property.value
                     );
                     return {
                       ...state,
-                      propertyTypeGroup: includeGroup
-                        ? state.propertyTypeGroup.filter(
+                      property_type_group: includeGroup
+                        ? state.property_type_group.filter(
                             (value) => value !== property.value
                           )
-                        : [...state.propertyTypeGroup, property.value],
+                        : [...state.property_type_group, property.value],
                     };
                   });
-                }}
+                }, 500)}
               >
-                <div style={{ height: '200px', position: 'relative' }}>
-                  <Image
-                    src={property.imgURL}
-                    alt={property.name}
-                    layout="fill"
-                    objectFit="cover"
-                    style={{ borderRadius: '4px' }}
-                    placeholder="blur"
-                    blurDataURL={`data:image/svg+xml;base64,${toBase64(
-                      shimmer('100%', '100%')
-                    )}`}
-                  />
+                <div>
+                  <property.Icon />
                 </div>
                 <figcaption>{property.name}</figcaption>
               </figure>
@@ -693,9 +665,9 @@ export default function FiltersModal({ setShowModal }: Props) {
               <Col key={`${am.value}-${i}`} xs={24} sm={12} md={8}>
                 <Checkbox
                   checked={filters.amenities.includes(am.value)}
-                  onChange={() => {
+                  onChange={debounce(() => {
                     setFilters((state) => {
-                      const includeAm = filters.amenities.includes(am.value);
+                      const includeAm = state.amenities.includes(am.value);
 
                       return {
                         ...state,
@@ -706,7 +678,7 @@ export default function FiltersModal({ setShowModal }: Props) {
                           : [...state.amenities, am.value],
                       };
                     });
-                  }}
+                  }, 500)}
                 >
                   <p>{am.name}</p>
                 </Checkbox>
@@ -723,9 +695,9 @@ export default function FiltersModal({ setShowModal }: Props) {
                 <Col key={`${am.value}-${i}`} xs={24} sm={12} md={8}>
                   <Checkbox
                     checked={filters.amenities.includes(am.value)}
-                    onChange={() => {
+                    onChange={debounce(() => {
                       setFilters((state) => {
-                        const includeAm = filters.amenities.includes(am.value);
+                        const includeAm = state.amenities.includes(am.value);
 
                         return {
                           ...state,
@@ -736,7 +708,7 @@ export default function FiltersModal({ setShowModal }: Props) {
                             : [...state.amenities, am.value],
                         };
                       });
-                    }}
+                    }, 500)}
                   >
                     <p>{am.name}</p>
                   </Checkbox>
@@ -752,9 +724,9 @@ export default function FiltersModal({ setShowModal }: Props) {
                 <Col key={`${am.value}-${i}`} xs={24} sm={12} md={8}>
                   <Checkbox
                     checked={filters.amenities.includes(am.value)}
-                    onChange={() => {
+                    onChange={debounce(() => {
                       setFilters((state) => {
-                        const includeAm = filters.amenities.includes(am.value);
+                        const includeAm = state.amenities.includes(am.value);
 
                         return {
                           ...state,
@@ -765,7 +737,7 @@ export default function FiltersModal({ setShowModal }: Props) {
                             : [...state.amenities, am.value],
                         };
                       });
-                    }}
+                    }, 500)}
                   >
                     <p>{am.name}</p>
                   </Checkbox>
@@ -812,9 +784,17 @@ export default function FiltersModal({ setShowModal }: Props) {
           border-width: 1px;
           cursor: pointer;
           height: 100%;
+          padding: 10px;
           margin: 0;
           text-align: center;
           transition: border-color 0.2s ease;
+        }
+
+        figure > div {
+          height: 100px;
+          margin-left: auto;
+          margin-right: auto;
+          width: 100px;
         }
 
         figure:hover {
@@ -838,6 +818,13 @@ export default function FiltersModal({ setShowModal }: Props) {
         .spaces {
           height: ${showSpaces ? 'auto' : '0'};
           overflow: ${showSpaces ? 'visible' : 'hidden'};
+        }
+
+        @media (min-width: ${breakPoints.sm}) {
+          figure > div {
+            height: 150px;
+            width: 150px;
+          }
         }
       `}</style>
     </>

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 // styles
 import { message } from 'antd';
 // leaflet
@@ -15,17 +16,18 @@ import {
 import { search, reverse } from 'api/geosearch';
 // helpers
 import { debounce } from 'helpers/debounce';
+import { calcDuration } from 'helpers/handlers';
+import { geolocation } from 'helpers/geolocation';
+import { toBase64 } from 'helpers/toBase64';
+import { shimmer } from 'helpers/shimmerEffect';
+// components
+import InputSearchSelect from 'components/InputSearchSelect';
 
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css';
 import 'leaflet-defaulticon-compatibility';
-import { geolocation } from 'helpers/geolocation';
-import { toBase64 } from 'helpers/toBase64';
-import { shimmer } from 'helpers/shimmerEffect';
-import Image from 'next/image';
-import InputSearchSelect from 'components/InputSearchSelect';
 
-const MapLocation = ({
+const FilterMap = ({
   setLocationState,
   locationState,
 }: {
@@ -47,80 +49,79 @@ const MapLocation = ({
   } | null;
 }) => {
   const [loading, setLoading] = useState<boolean>(true);
+  const [effectOneTime, setEffectOneTime] = useState<boolean>(false);
   const [options, setOptions] = useState<{ label: string; value: string }[]>(
     []
   );
   const [location, setLocation] = useState<number[] | null>(null);
   const [selectValue, setSelectValue] = useState<string>('');
-  const [runLocationStateEffect, setrunLocationStateEffect] = useState(true);
 
   useEffect(() => {
+    if (locationState === null) {
+      setSelectValue('');
+      setLocation(null);
+    }
+  }, [locationState]);
+
+  useEffect(() => {
+    if (effectOneTime) return;
     (async () => {
-      if (locationState === null) {
-        setSelectValue('');
-        setLocation(null);
-        return;
-      }
-      if (!runLocationStateEffect) return;
-      if (locationState && locationState.latitude && locationState.longitude) {
-        await setLocationByCoordinates({
+      if (
+        locationState &&
+        locationState.latitude &&
+        locationState.longitude &&
+        locationState.country
+      ) {
+        await handleLocationByCoordinates({
           lat: locationState.latitude,
           lng: locationState.longitude,
         });
         return;
       }
-      if (
-        locationState?.city ||
-        locationState?.state ||
-        locationState?.country
-      ) {
+
+      if (locationState && locationState.country) {
         const { city, state, country } = locationState;
-        await setLocationByCountry({ city, state, country });
+        await handleLocationByCountry({ city, state, country });
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationState]);
 
-  const setLocationByCoordinates = useMemo(
+  const handleLocationByCoordinates = useMemo(
     () =>
       async ({ lat, lng }: { lat: number; lng: number }) => {
+        setEffectOneTime(false);
         setLoading(false);
         setLocation([lat, lng]);
-        setrunLocationStateEffect(false);
         try {
           const { data } = await reverse({
             lat,
             lng,
           });
           setSelectValue(data.displayName);
-          setLocationState({
-            city: data.city || undefined,
-            state: data.state || undefined,
-            country: data.country,
-            latitude: data.lat,
-            longitude: data.lng,
-          });
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
-          message.error('Error: no se puede obtener tu ubicación.', 5);
+          const content = 'Error: no se puede obtener tu ubicación.';
+          message.error({
+            content,
+            duration: Math.max(...[3, calcDuration(content)]),
+          });
         }
       },
-    [setLocationState]
+    []
   );
 
-  const setLocationByCountry = useMemo(
+  const handleLocationByCountry = useMemo(
     () =>
       async ({
         city,
         state,
         country,
       }: {
-        city?: string | null;
-        state?: string | null;
+        city?: string;
+        state?: string;
         country?: string;
       }) => {
-        setLoading(false);
-        setrunLocationStateEffect(false);
         try {
           let q = '';
           if (city) q += `${city},`;
@@ -134,21 +135,20 @@ const MapLocation = ({
             lat: position[0],
             lng: position[1],
           });
-          setSelectValue(data.displayName);
+          setEffectOneTime(false);
+          setLoading(false);
           setLocation([data.lat, data.lng]);
-          setLocationState({
-            city: data.city || undefined,
-            state: data.state || undefined,
-            country: data.country,
-            latitude: data.lat,
-            longitude: data.lng,
-          });
+          setSelectValue(data.displayName);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
-          message.error('Error: no se puede obtener tu ubicación.', 5);
+          const content = 'Error: no se puede obtener tu ubicación.';
+          message.error({
+            content,
+            duration: Math.max(...[3, calcDuration(content)]),
+          });
         }
       },
-    [setLocationState]
+    []
   );
 
   const handleDebounceSearch = useMemo(
@@ -162,7 +162,11 @@ const MapLocation = ({
         setSelectValue(q);
 
         if (!navigator.onLine) {
-          message.error('Error: debes tener acceso a internet.', 5);
+          const content = 'Error: debes tener acceso a internet.';
+          message.error({
+            content,
+            duration: Math.max(...[3, calcDuration(content)]),
+          });
           return;
         }
 
@@ -171,7 +175,11 @@ const MapLocation = ({
           setOptions(data);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
-          message.error('Error: no se puede obtener tu ubicación.', 5);
+          const content = 'Error: no se puede obtener tu ubicación.';
+          message.error({
+            content,
+            duration: Math.max(...[3, calcDuration(content)]),
+          });
         }
       }, 1500),
     []
@@ -186,7 +194,11 @@ const MapLocation = ({
       }
 
       if (!navigator.onLine) {
-        message.error('Error: debes tener acceso a internet.', 5);
+        const content = 'Error: debes tener acceso a internet.';
+        message.error({
+          content,
+          duration: Math.max(...[3, calcDuration(content)]),
+        });
         return;
       }
 
@@ -195,7 +207,7 @@ const MapLocation = ({
         lng: 0,
       };
 
-      if (data === 'Usar mi ubicación actual') {
+      if (data === 'Usar mi ubicación') {
         try {
           const { lat, lng } = await geolocation();
 
@@ -204,7 +216,12 @@ const MapLocation = ({
           setLocation([lat, lng]);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (error: any) {
-          message.error(error.message, 5);
+          const content = error.message;
+          message.error({
+            content,
+            duration: Math.max(...[3, calcDuration(content)]),
+          });
+          return;
         }
       } else {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -220,6 +237,7 @@ const MapLocation = ({
           lat: latLng.lat,
           lng: latLng.lng,
         });
+        setEffectOneTime(true);
         setSelectValue(data.displayName);
         setLocationState({
           city: data.city || undefined,
@@ -230,7 +248,11 @@ const MapLocation = ({
         });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
-        message.error('Error: no se puede obtener tu ubicación.', 5);
+        const content = 'Error: no se puede obtener tu ubicación.';
+        message.error({
+          content,
+          duration: Math.max(...[3, calcDuration(content)]),
+        });
       }
     },
     [setLocationState]
@@ -259,6 +281,7 @@ const MapLocation = ({
             lat: latLng.lat,
             lng: latLng.lng,
           });
+          setEffectOneTime(true);
           setLocation([latLng.lat, latLng.lng]);
           setSelectValue(data.displayName);
           setLocationState({
@@ -271,7 +294,11 @@ const MapLocation = ({
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } catch (err: any) {
-          message.error('Error: no se puede obtener tu ubicación.', 5);
+          const content = 'Error: no se puede obtener tu ubicación.';
+          message.error({
+            content,
+            duration: Math.max(...[3, calcDuration(content)]),
+          });
         }
       },
     }),
@@ -288,8 +315,8 @@ const MapLocation = ({
           onChange={handleChange}
           options={[
             {
-              label: 'Usar mi ubicación actual',
-              value: 'Usar mi ubicación actual',
+              label: 'Usar mi ubicación',
+              value: 'Usar mi ubicación',
             },
             ...options,
           ]}
@@ -319,7 +346,8 @@ const MapLocation = ({
       ) : (
         <MapContainer
           center={location as LatLngExpression}
-          zoom={13}
+          zoom={8}
+          minZoom={4}
           scrollWheelZoom={false}
           style={{
             height: '100%',
@@ -345,4 +373,4 @@ const MapLocation = ({
   );
 };
 
-export default MapLocation;
+export default FilterMap;

@@ -1,28 +1,17 @@
 import React from 'react';
 import Head from 'next/head';
-import { breakPoints, colors } from 'styles/variables';
 // components
 import NavBar from 'components/Navbar';
+// styles
+import { breakPoints, colors } from 'styles/variables';
 
 interface Props {
+  description: string;
   children: React.ReactNode;
   title: string;
-  description: string;
-  loading?: boolean;
-  isShowfilters?: boolean;
-  queryParamsAmount?: number;
-  isShowReturnButton?: boolean;
 }
 
-export default function Layout({
-  children,
-  title,
-  description,
-  loading = false,
-  isShowfilters = false,
-  queryParamsAmount = 0,
-  isShowReturnButton = true,
-}: Props) {
+export default function Layout({ description, children, title }: Props) {
   return (
     <>
       <Head>
@@ -31,12 +20,7 @@ export default function Layout({
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <header>
-        <NavBar
-          loading={loading}
-          isShowfilters={isShowfilters}
-          queryParamsAmount={queryParamsAmount}
-          isShowReturnButton={isShowReturnButton}
-        />
+        <NavBar />
       </header>
       <main>{children}</main>
       <footer>
@@ -47,17 +31,17 @@ export default function Layout({
           background-color: ${colors.white};
           border-bottom: 1px solid ${colors.gray};
           color: rgba(0, 0, 0, 0.85);
+          height: 3.5rem;
           padding: 10px 0;
           position: sticky;
           top: 0;
           z-index: 2000;
         }
 
-        main {
-          margin: 0px auto;
-          max-width: ${breakPoints.xl};
-          padding-bottom: 30px;
-          width: 90%;
+        @media (min-width: ${breakPoints.sm}) {
+          header {
+            height: 5rem;
+          }
         }
       `}</style>
     </>

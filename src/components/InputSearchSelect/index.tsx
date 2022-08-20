@@ -71,9 +71,8 @@ export default function InputSearchSelect({
               <div
                 key={`${option.value}-${i}`}
                 className="option"
-                data-value={option.value}
-                onClick={(e: any) => {
-                  onChange(e.target.dataset.value);
+                onClick={() => {
+                  onChange(option.value);
                 }}
               >
                 {option.label}

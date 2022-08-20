@@ -1,35 +1,39 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
+// components
+import FiltersModal from 'components/modals/FiltersModal';
+import ContactAgentModal from 'components/modals/ContactAgentModal';
+// helpers
+import { debounce } from 'helpers/debounce';
+// redux
+import { useSelector } from 'react-redux';
+import { AppState } from 'store';
 // styles
 import { Badge, Button, Col, Input, Row, Skeleton, Typography } from 'antd';
 import { FilterOutlined, LeftOutlined } from '@ant-design/icons';
 import { colors } from 'styles/variables';
-// helpers
-import { debounce } from 'helpers/debounce';
-// components
-import FiltersModal from 'components/FiltersModal';
 
-interface Props {
-  loading?: boolean;
-  isShowfilters?: boolean;
-  queryParamsAmount?: number;
-  isShowReturnButton?: boolean;
-}
-
-export default function NavBar({
-  loading = false,
-  isShowfilters = false,
-  queryParamsAmount = 0,
-  isShowReturnButton = true,
-}: Props) {
+export default function NavBar() {
   const router = useRouter();
+  const {
+    appLoading,
+    appQueryParamsNumber,
+    appShowReturnButton,
+    appShowFilters,
+    appShowContactAgent,
+  } = useSelector((state: AppState) => state.app);
+
   const [showModal, setShowModal] = useState(false);
+  const [showContactAgentModal, setShowContactAgentModal] = useState(false);
   const [inputSearchValue, setInputSearchValue] = useState('');
 
   useEffect(() => {
     if (!router.isReady) return;
-    if (!router.query.q) return;
+    if (!router.query.q) {
+      setInputSearchValue('');
+      return;
+    }
     const q = router.query.q as string;
     setInputSearchValue(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -57,7 +61,16 @@ export default function NavBar({
   return (
     <>
       <nav>
-        <Row gutter={[8, 8]} align="middle" style={{ margin: '0px' }}>
+        <Row
+          gutter={[8, 8]}
+          align="middle"
+          justify={
+            router.asPath.includes('/property/show/')
+              ? 'space-between'
+              : undefined
+          }
+          style={{ margin: '0px' }}
+        >
           <Col
             sm={6}
             style={{ textAlign: 'center' }}
@@ -68,76 +81,104 @@ export default function NavBar({
             </Link>
           </Col>
 
-          {isShowReturnButton && (
-            <Col
-              xs={3}
-              style={{ textAlign: 'center' }}
-              className="return-container"
-            >
+          {appShowReturnButton && (
+            <Col xs={6} className="return-container">
               <Link href="/">
-                <LeftOutlined
+                <a
                   style={{
                     alignItems: 'center',
-                    borderRadius: '50%',
-                    boxShadow:
-                      '0 1px 2px -2px rgb(0 0 0 / 16%), 0 3px 6px 0 rgb(0 0 0 / 12%), 0 5px 12px 4px rgb(0 0 0 / 9%)',
                     display: 'flex',
-                    height: '30px',
                     justifyContent: 'center',
-                    padding: '6px',
-                    textAlign: 'center',
-                    width: '30px',
+                    color: colors.black,
                   }}
-                />
+                >
+                  <LeftOutlined
+                    style={{
+                      alignItems: 'center',
+                      borderRadius: '50%',
+                      boxShadow:
+                        '0 1px 2px -2px rgb(0 0 0 / 16%), 0 3px 6px 0 rgb(0 0 0 / 12%), 0 5px 12px 4px rgb(0 0 0 / 9%)',
+                      display: 'flex',
+                      height: '30px',
+                      justifyContent: 'center',
+                      padding: '6px',
+                      textAlign: 'center',
+                      width: '30px',
+                    }}
+                  />
+                </a>
               </Link>
             </Col>
           )}
 
-          <Col xs={14} sm={10}>
-            {loading ? (
-              <Skeleton.Input active block />
-            ) : (
-              <Input.Search
-                placeholder="Busca tu propiedad"
-                enterButton
-                value={inputSearchValue}
-                onChange={(e) => {
-                  setInputSearchValue(e.target.value);
-                  handleDebounceSearch(e.target.value);
-                }}
-              />
-            )}
-          </Col>
-          {isShowfilters && (
-            <Col xs={7} sm={4}>
-              {loading ? (
+          {appShowFilters && (
+            <>
+              <Col xs={14} sm={10}>
+                {appLoading ? (
+                  <Skeleton.Input active block />
+                ) : (
+                  <Input.Search
+                    placeholder="Busca tu propiedad"
+                    enterButton
+                    value={inputSearchValue}
+                    onChange={(e) => {
+                      setInputSearchValue(e.target.value);
+                      handleDebounceSearch(e.target.value);
+                    }}
+                  />
+                )}
+              </Col>
+              <Col xs={10} sm={8}>
+                {appLoading ? (
+                  <Skeleton.Button active block />
+                ) : (
+                  <Badge
+                    count={
+                      appQueryParamsNumber > 0 ? appQueryParamsNumber : null
+                    }
+                    color={colors.primary}
+                  >
+                    <Button
+                      block
+                      style={{ padding: '4px 8px' }}
+                      onClick={debounce(() => setShowModal(true), 800)}
+                    >
+                      <Typography.Text strong>
+                        <FilterOutlined /> Filtros
+                      </Typography.Text>
+                    </Button>
+                  </Badge>
+                )}
+              </Col>
+            </>
+          )}
+          {appShowContactAgent && (
+            <Col xs={14} sm={8}>
+              {appLoading ? (
                 <Skeleton.Button
                   active
                   block
                   style={{ maxWidth: '100%', width: '100%' }}
                 />
               ) : (
-                <Badge
-                  count={queryParamsAmount > 0 ? queryParamsAmount : null}
-                  color={colors.primary}
+                <Button
+                  block
+                  type="primary"
+                  style={{ padding: '4px 8px' }}
+                  onClick={debounce(() => setShowContactAgentModal(true), 800)}
                 >
-                  <Button
-                    block
-                    style={{ padding: '4px 8px' }}
-                    onClick={debounce(() => setShowModal(true), 800)}
-                  >
-                    <Typography.Text strong>
-                      <FilterOutlined /> Filtros
-                    </Typography.Text>
-                  </Button>
-                </Badge>
+                  Contactar agente
+                </Button>
               )}
             </Col>
           )}
         </Row>
       </nav>
-      {isShowfilters && showModal && (
-        <FiltersModal setShowModal={setShowModal} />
+      {showModal && <FiltersModal setShowModal={setShowModal} />}
+      {showContactAgentModal && location && (
+        <ContactAgentModal
+          setShowContactAgentModal={setShowContactAgentModal}
+        />
       )}
       <style jsx>{`
         nav {

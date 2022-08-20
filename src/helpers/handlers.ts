@@ -7,7 +7,6 @@ export enum MessageTypes {
   warning = 'warning',
   warn = 'warn',
   error = 'error',
-  err = 'error',
 }
 
 export interface ErrorType {
@@ -21,7 +20,7 @@ interface Props {
   type?: MessageTypes;
 }
 
-const calcDuration = (msg = '') => msg.split(' ').length / 2;
+export const calcDuration = (msg = '') => msg.split(' ').length / 2;
 
 export const handleError = ({
   err: _err,
@@ -39,14 +38,17 @@ export const handleError = ({
   if (response?.message) {
     if (response?.message instanceof Array) {
       response?.message.forEach((msg: string) => {
-        message[type](msg, Math.max(...[3, calcDuration(msg)]));
+        message[type]({
+          content: msg,
+          duration: Math.max(...[3, calcDuration(msg)]),
+        });
       });
       return;
     }
-    message[type](
-      response.message,
-      Math.max(...[3, calcDuration(response.message)])
-    );
+    message[type]({
+      content: response.message,
+      duration: Math.max(...[3, calcDuration(response.message)]),
+    });
     return;
   }
 
@@ -57,13 +59,19 @@ export const handleError = ({
   ) {
     if (document.querySelector('.ant-message > div')?.children.length) return;
     if (!navigator.onLine) {
-      message[type](
-        'La petición no puede ser realizada. Verifique su conexión a internet.',
-        5
-      );
+      const content =
+        'La petición no puede ser realizada. Verifique su conexión a internet.';
+      message[type]({
+        content,
+        duration: Math.max(...[3, calcDuration(content)]),
+      });
       return;
     }
-    message[type]('Error: no se puede establecer la conexión', 20);
+    const content = 'Error: no se puede establecer la conexión';
+    message[type]({
+      content,
+      duration: Math.max(...[3, calcDuration(content)]),
+    });
   }
 };
 
@@ -74,12 +82,19 @@ export const handleSuccess = (
   const msg = response?.data?.message || defaultMessage;
   // Validating that have a response or default message
   if (msg) {
-    message.info(msg);
+    message.info({
+      content: msg,
+      duration: Math.max(...[3, calcDuration(msg)]),
+    });
     return;
   }
   // Validating that does not have a message if is development enviroment
   if (process.env.NODE_ENV === 'development') {
-    message.error('Message not provided');
+    const content = 'Message not provided';
+    message.error({
+      content,
+      duration: Math.max(...[3, calcDuration(content)]),
+    });
   }
 };
 

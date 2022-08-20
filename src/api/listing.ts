@@ -7,6 +7,8 @@ export interface GetAllPublicListingInfo {
   price: number;
   city: string;
   country: string;
+  latitude: string;
+  longitude: string;
   photo: {
     url: string;
     name: string;
@@ -15,7 +17,7 @@ export interface GetAllPublicListingInfo {
 }
 
 export interface Location {
-  id?: number;
+  id: number;
   address: string;
   postcode: string;
   road: string;
@@ -27,7 +29,7 @@ export interface Location {
 }
 
 export interface FloorPlan {
-  id?: number;
+  id: number;
   living_rooms: number;
   kitchens: number;
   dining_rooms: number;
@@ -36,7 +38,7 @@ export interface FloorPlan {
 }
 
 export interface Listing {
-  id?: number;
+  id: number;
   property_type_group: string;
   property_type: string;
   privacy_type: string;
@@ -47,14 +49,14 @@ export interface Listing {
 }
 
 export interface Extra {
-  id?: number;
+  id: number;
   security_cameras: number;
   weapons: number;
   dangerous_animals: number;
 }
 
 export interface Photo {
-  id?: number;
+  id: number;
   unique_photo_id: string;
   file?: File;
   name: string;
@@ -63,7 +65,7 @@ export interface Photo {
 }
 
 export interface Amenity {
-  id?: number;
+  id: number;
   name: string;
 }
 
@@ -76,31 +78,46 @@ export interface GetListingInfo {
   amenity: Amenity[];
 }
 
+export interface CoordinatesType {
+  swLat: number | null;
+  swLng: number | null;
+  neLat: number | null;
+  neLng: number | null;
+}
+
 export const getAllListing = ({
   perPage,
-  currentPage,
-  q,
+  page,
   filters,
+  coordinates,
 }: {
   perPage?: number;
-  currentPage?: number;
-  q?: string;
+  page?: number;
   filters?: string;
+  coordinates?: CoordinatesType;
 }): Promise<
   AxiosResponse<{
     listings: GetAllPublicListingInfo[];
     total: number;
+    totalPages: number;
   }>
 > => {
-  // let URI = `/listing?page=${currentPage}&per_page=${perPage}`;
   let URI = `/listing/public/all`;
 
-  // if (q.length) URI += `&q=${q}`;
-
-  if (filters?.length) {
-    URI += `?${filters}`;
+  if (page && perPage) {
+    URI += `?per_page=${perPage}&page=${page}`;
   }
 
+  if (coordinates) {
+    const { swLat, neLat, swLng, neLng } = coordinates;
+    if (swLat !== null && swLng !== null && neLat !== null && neLng !== null) {
+      URI += `?swLat=${swLat}&swLng=${swLng}&neLat=${neLat}&neLng=${neLng}`;
+    }
+  }
+
+  if (filters?.length) {
+    URI += `&${filters}`;
+  }
   return API.get(URI);
 };
 
@@ -112,8 +129,16 @@ export const getCountAllListing = ({
   AxiosResponse<{
     total: number;
   }>
-> => API.get(`/listing/public/all/count?${query}`);
+> => API.get(`/listing/public/all/count${query.length ? `?${query}` : ''}`);
 
 export const getListing = (
   id: number | string
 ): Promise<AxiosResponse<GetListingInfo>> => API.get(`/listing/public/${id}`);
+
+export const postContactAgent = ({
+  id,
+  data,
+}: {
+  id: number;
+  data: { name: string; phone: string; email: string; message: string };
+}) => API.post(`/listing/public/contact-agent/${id}`, data);

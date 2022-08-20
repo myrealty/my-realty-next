@@ -5,11 +5,12 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css';
 import 'leaflet-defaulticon-compatibility';
 
-const Map = ({ location }: { location: Location }) => {
+const ShowMap = ({ location }: { location: Location }) => {
   return (
     <MapContainer
       center={[location.latitude, location.longitude]}
-      zoom={13}
+      zoom={6}
+      minZoom={4}
       scrollWheelZoom={false}
       style={{
         height: '400px',
@@ -25,4 +26,4 @@ const Map = ({ location }: { location: Location }) => {
   );
 };
 
-export default Map;
+export default ShowMap;

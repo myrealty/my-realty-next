@@ -1,6 +1,31 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { GetServerSidePropsContext } from 'next';
+// axios
+import { baseURL } from 'api';
+import { getListing, GetListingInfo } from 'api/listing';
+// components
+import Layout from 'components/Layout';
+import { ShowMapWithNoSSR } from 'components/maps/ShowMap';
+import Redirect from 'components/Redirect';
+// data
+import {
+  amenitiesData,
+  translateExtra,
+  translateFloorPlan,
+} from 'data/listing';
+// helpers
+import { toBase64 } from 'helpers/toBase64';
+import { shimmer } from 'helpers/shimmerEffect';
+import { currencyFormat } from 'helpers/currencyFormat';
+// redux
+import {
+  setAppShowReturnButton,
+  setAppShowFilters,
+  setAppShowContactAgent,
+  setAppLocation,
+  setAppLoading,
+} from 'store/actions/app';
 // styles
 import { Button, Col, Modal, Row, Skeleton, Typography } from 'antd';
 import {
@@ -9,23 +34,6 @@ import {
 } from '@ant-design/icons';
 import { addOpacity } from 'styles/utils';
 import { breakPoints, colors } from 'styles/variables';
-// http functions
-import { baseURL } from 'api';
-import { getListing, GetListingInfo } from 'api/listing';
-// helpers
-import { toBase64 } from 'helpers/toBase64';
-import { shimmer } from 'helpers/shimmerEffect';
-import { currencyFormat } from 'helpers/currencyFormat';
-// data
-import {
-  amenitiesData,
-  translateExtra,
-  translateFloorPlan,
-} from 'data/listing';
-// components
-import Layout from 'components/Layout';
-import { MapWithNoSSR } from 'components/Map';
-import Redirect from 'components/Redirect';
 
 export default function ShowListing({
   data,
@@ -36,6 +44,15 @@ export default function ShowListing({
 }) {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    setAppLoading(false);
+    setAppShowFilters(false);
+    setAppShowReturnButton(true);
+    setAppShowContactAgent(true);
+    setAppLocation({ location: { ...data.location, listingId: listing.id } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!success) return <Redirect to="/" />;
 
@@ -49,371 +66,386 @@ export default function ShowListing({
   } = data;
 
   return (
-    <Layout
-      title={listing.title}
-      description={listing.description}
-      loading={loading}
-      isShowfilters
-    >
-      {loading ? (
-        <>
-          <Skeleton.Input
-            active
-            block
-            size="large"
-            style={{ marginTop: '20px' }}
-          />
-
-          <Skeleton.Input size="small" active style={{ margin: '20px 0' }} />
-        </>
-      ) : (
-        <>
-          <h1>{listing?.title}</h1>
-          <p>
-            <Typography.Text underline strong>
-              {location?.city}, {location?.state}, {location?.country}
-            </Typography.Text>
-          </p>
-        </>
-      )}
-
-      <Row justify="center" gutter={[16, 0]}>
-        <Col xs={24} md={12} style={{ marginBottom: '20px' }}>
-          <div
-            style={{
-              height: '458px',
-              position: 'relative',
-            }}
-          >
-            <Image
-              src={`${baseURL}/listing/image/${
-                photo.find((photo) => photo.number === 1)?.url
-              }`}
-              alt={photo.find((photo) => photo.number === 1)?.name}
-              layout="fill"
-              objectFit="cover"
-              placeholder="blur"
-              blurDataURL={`data:image/svg+xml;base64,${toBase64(
-                shimmer('100%', '100%')
-              )}`}
+    <Layout title={listing.title} description={listing.description}>
+      <section className="container">
+        {loading ? (
+          <>
+            <Skeleton.Input
+              active
+              block
+              size="large"
+              style={{ marginTop: '20px' }}
             />
-          </div>
-        </Col>
-        <Col xs={24} md={12}>
-          <Row justify="center" gutter={[16, 16]}>
-            {photo.map((photo) => {
-              if (photo.number === 1) return null;
-              return (
-                <Col key={photo.unique_photo_id} xs={24} sm={12}>
-                  <div style={{ height: '220px', position: 'relative' }}>
-                    <Image
-                      src={`${baseURL}/listing/image/${photo.url}`}
-                      alt={photo.name}
-                      layout="fill"
-                      objectFit="cover"
-                      placeholder="blur"
-                      blurDataURL={`data:image/svg+xml;base64,${toBase64(
-                        shimmer('100%', '100%')
-                      )}`}
-                      onLoadingComplete={() => {
-                        setLoading(false);
-                      }}
-                    />
-                  </div>
-                </Col>
-              );
-            })}
-          </Row>
-        </Col>
-      </Row>
 
-      {loading ? (
-        <>
-          <Skeleton.Input
-            active
-            block
-            size="large"
-            style={{ marginTop: '20px' }}
-          />
-          <Skeleton.Input
-            active
-            block
-            size="large"
-            style={{ margin: '20px 0' }}
-          />
-        </>
-      ) : (
-        <>
-          <h2>Precio: {currencyFormat(listing.price, 'USD')}</h2>
-          <h2>Espacios que te ofrece esta propiedad:</h2>
-        </>
-      )}
+            <Skeleton.Input size="small" active style={{ margin: '20px 0' }} />
+          </>
+        ) : (
+          <>
+            <h1>{listing?.title}</h1>
+            <p>
+              <Typography.Text underline strong>
+                {location?.city}, {location?.state}, {location?.country}
+              </Typography.Text>
+            </p>
+          </>
+        )}
 
-      <Row gutter={[16, 16]} style={{ fontSize: '16px', textAlign: 'left' }}>
-        {Object.entries(floorPlan).map(([key, value]) => {
-          if (key === 'id') return null;
-          return (
-            <Col key={key} xs={24} sm={12} md={8}>
-              {loading ? (
-                <>
-                  <Skeleton.Input active block size="small" />
-                </>
-              ) : (
-                <>
-                  <Typography.Text strong>
-                    <CheckCircleOutlined />{' '}
-                    {`${value} ${
-                      value === 1
-                        ? // @ts-ignore
-                          translateFloorPlan[`${key}_1`]
-                        : // @ts-ignore
-                          translateFloorPlan[key]
-                    }`}
-                  </Typography.Text>
-                </>
-              )}
-            </Col>
-          );
-        })}
-      </Row>
-
-      {!!amenity.length && (
-        <>
-          {loading ? (
-            <>
-              <Skeleton.Input
-                active
-                block
-                size="large"
-                style={{ margin: '20px 0' }}
+        <Row justify="center" gutter={[16, 0]}>
+          <Col xs={24} md={12} style={{ marginBottom: '20px' }}>
+            <div
+              style={{
+                height: '458px',
+                position: 'relative',
+              }}
+            >
+              <Image
+                src={`${baseURL}/listing/image/${
+                  photo.find((photo) => photo.number === 1)?.url
+                }`}
+                alt={photo.find((photo) => photo.number === 1)?.name}
+                layout="fill"
+                objectFit="cover"
+                placeholder="blur"
+                blurDataURL={`data:image/svg+xml;base64,${toBase64(
+                  shimmer('100%', '100%')
+                )}`}
               />
-            </>
-          ) : (
-            <>
-              <h2>Los servicios que te ofrece esta propiedad:</h2>
-            </>
-          )}
+            </div>
+          </Col>
+          <Col xs={24} md={12}>
+            <Row justify="center" gutter={[16, 16]}>
+              {photo.map((photo) => {
+                if (photo.number === 1) return null;
+                return (
+                  <Col key={photo.unique_photo_id} xs={24} sm={12}>
+                    <div style={{ height: '220px', position: 'relative' }}>
+                      <Image
+                        src={`${baseURL}/listing/image/${photo.url}`}
+                        alt={photo.name}
+                        layout="fill"
+                        objectFit="cover"
+                        placeholder="blur"
+                        blurDataURL={`data:image/svg+xml;base64,${toBase64(
+                          shimmer('100%', '100%')
+                        )}`}
+                        onLoadingComplete={() => {
+                          setLoading(false);
+                        }}
+                      />
+                    </div>
+                  </Col>
+                );
+              })}
+            </Row>
+          </Col>
+        </Row>
 
-          <Row gutter={[16, 16]} style={{ marginBottom: '10px' }}>
-            {amenity.slice(0, 8).map(({ name }, i) => (
-              <Col key={`${name}-${i}`} xs={24} sm={8} md={6}>
-                <figure>
-                  {(() => {
-                    const data = amenitiesData.find((am) => am.value === name)!;
+        {loading ? (
+          <>
+            <Skeleton.Input
+              active
+              block
+              size="large"
+              style={{ marginTop: '20px' }}
+            />
+            <Skeleton.Input
+              active
+              block
+              size="large"
+              style={{ margin: '20px 0' }}
+            />
+          </>
+        ) : (
+          <>
+            <h2>Precio: {currencyFormat(listing.price, 'USD')}</h2>
+            <h3>Descripción:</h3>
+          </>
+        )}
 
-                    return (
-                      <>
-                        <Image
-                          src={data.imageURL}
-                          alt={data.name}
-                          width={56}
-                          height={56}
-                          placeholder="blur"
-                          blurDataURL={`data:image/svg+xml;base64,${toBase64(
-                            shimmer('100%', '100%')
-                          )}`}
-                        />
+        <Skeleton loading={loading} active>
+          <p>{listing.description}</p>
+        </Skeleton>
+
+        {loading ? (
+          <>
+            <Skeleton.Input
+              active
+              block
+              size="large"
+              style={{ margin: '20px 0' }}
+            />
+          </>
+        ) : (
+          <>
+            <h3>Espacios que te ofrece esta propiedad:</h3>
+          </>
+        )}
+
+        <Row gutter={[16, 16]} style={{ fontSize: '16px', textAlign: 'left' }}>
+          {Object.entries(floorPlan).map(([key, value]) => {
+            if (key === 'id') return null;
+            return (
+              <Col key={key} xs={24} sm={12} md={8}>
+                {loading ? (
+                  <>
+                    <Skeleton.Input active block size="small" />
+                  </>
+                ) : (
+                  <>
+                    <Typography.Text strong>
+                      <CheckCircleOutlined />{' '}
+                      {`${value} ${
+                        value === 1
+                          ? // @ts-ignore
+                            translateFloorPlan[`${key}_1`]
+                          : // @ts-ignore
+                            translateFloorPlan[key]
+                      }`}
+                    </Typography.Text>
+                  </>
+                )}
+              </Col>
+            );
+          })}
+        </Row>
+
+        {!!amenity.length && (
+          <>
+            {loading ? (
+              <>
+                <Skeleton.Input
+                  active
+                  block
+                  size="large"
+                  style={{ margin: '20px 0' }}
+                />
+              </>
+            ) : (
+              <>
+                <h3>Los servicios que te ofrece esta propiedad:</h3>
+              </>
+            )}
+
+            <Row gutter={[16, 16]} style={{ marginBottom: '10px' }}>
+              {amenity.slice(0, 8).map(({ name }, i) => (
+                <Col key={`${name}-${i}`} xs={24} sm={8} md={6}>
+                  <figure>
+                    {(() => {
+                      const data = amenitiesData.find(
+                        (am) => am.value === name
+                      )!;
+
+                      return (
+                        <>
+                          {!loading && (
+                            <div className="icon">
+                              <data.Icon />
+                            </div>
+                          )}
+
+                          {loading ? (
+                            <>
+                              <Skeleton.Input active block size="small" />
+                            </>
+                          ) : (
+                            <>
+                              <figcaption>{data.name}</figcaption>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </figure>
+                </Col>
+              ))}
+            </Row>
+
+            {!loading && (
+              <Row style={{ marginBottom: '20px' }}>
+                <Col xs={24} sm={10}>
+                  <Button
+                    block
+                    type="primary"
+                    disabled={loading}
+                    onClick={() => setShowModal(true)}
+                  >
+                    Mostrar los {amenity.length} servicios
+                  </Button>
+                </Col>
+              </Row>
+            )}
+          </>
+        )}
+
+        {loading ? (
+          <>
+            <Skeleton.Input
+              active
+              block
+              size="large"
+              style={{ marginTop: '20px' }}
+            />
+            <Skeleton.Input size="small" active style={{ margin: '20px 0' }} />
+          </>
+        ) : (
+          <>
+            <h3>Esta ubicado en:</h3>
+            <p>
+              <Typography.Text underline>
+                {location?.city}, {location?.state}, {location?.country}
+              </Typography.Text>
+            </p>
+          </>
+        )}
+
+        <ShowMapWithNoSSR location={location} />
+
+        {!!Object.entries(extra)
+          .filter(([key]) => key !== 'id')
+          .some(([, value]) => value === 1) && (
+          <>
+            {loading ? (
+              <>
+                <Skeleton.Input active block style={{ marginTop: '20px' }} />
+                <Skeleton.Input
+                  size="small"
+                  active
+                  style={{ margin: '20px 0' }}
+                />
+              </>
+            ) : (
+              <>
+                <h3>Otras cosas que debes saber sobre esta propiedad:</h3>
+                <p>Cuenta con: </p>
+                <Row
+                  gutter={[16, 16]}
+                  justify="space-evenly"
+                  style={{ fontSize: '16px', textAlign: 'center' }}
+                >
+                  {Object.entries(extra).map(([key, value]) =>
+                    value === 1 && key !== 'id' ? (
+                      <Col key={key} xs={24} sm={12} md={8}>
                         {loading ? (
                           <>
                             <Skeleton.Input active block size="small" />
                           </>
                         ) : (
                           <>
-                            <figcaption>{data.name}</figcaption>
+                            <Typography.Text strong>
+                              <ExclamationCircleOutlined />{' '}
+                              {
+                                // @ts-ignore
+                                translateExtra[key]
+                              }
+                            </Typography.Text>
                           </>
                         )}
-                      </>
-                    );
-                  })()}
-                </figure>
-              </Col>
-            ))}
-          </Row>
-          <Row style={{ marginBottom: '20px' }}>
-            <Col xs={24} sm={10}>
-              <Button
-                block
-                type="primary"
-                disabled={loading}
-                onClick={() => setShowModal(true)}
-              >
-                Mostrar los {amenity.length} servicios
-              </Button>
-            </Col>
-          </Row>
-        </>
-      )}
-
-      {loading ? (
-        <>
-          <Skeleton.Input
-            active
-            block
-            size="large"
-            style={{ marginTop: '20px' }}
-          />
-          <Skeleton.Input size="small" active style={{ margin: '20px 0' }} />
-        </>
-      ) : (
-        <>
-          <h2>Esta ubicado en:</h2>
-          <p>
-            <Typography.Text underline>
-              {location?.city}, {location?.state}, {location?.country}
-            </Typography.Text>
-          </p>
-        </>
-      )}
-
-      <MapWithNoSSR location={location} />
-
-      {!!Object.entries(extra)
-        .filter(([key]) => key !== 'id')
-        .some(([, value]) => value === 1) && (
-        <>
-          {loading ? (
-            <>
-              <Skeleton.Input active block style={{ marginTop: '20px' }} />
-              <Skeleton.Input
-                size="small"
-                active
-                style={{ margin: '20px 0' }}
-              />
-            </>
-          ) : (
-            <>
-              <h3>Otras cosas que debes saber sobre esta propiedad:</h3>
-              <p>Cuenta con: </p>
-              <Row
-                gutter={[16, 16]}
-                justify="space-evenly"
-                style={{ fontSize: '16px', textAlign: 'center' }}
-              >
-                {Object.entries(extra).map(([key, value]) =>
-                  value === 1 && key !== 'id' ? (
-                    <Col key={key} xs={24} sm={12} md={8}>
-                      {loading ? (
-                        <>
-                          <Skeleton.Input active block size="small" />
-                        </>
-                      ) : (
-                        <>
-                          <Typography.Text strong>
-                            <ExclamationCircleOutlined />{' '}
-                            {
-                              // @ts-ignore
-                              translateExtra[key]
-                            }
-                          </Typography.Text>
-                        </>
-                      )}
-                    </Col>
-                  ) : null
-                )}
-              </Row>
-            </>
-          )}
-        </>
-      )}
-
-      {!!amenity.length && (
-        <Modal
-          title="Los servicios que te ofrece esta propiedad:"
-          centered
-          width="90vw"
-          style={{ top: '0', zIndex: '3000' }}
-          bodyStyle={{ overflowY: 'scroll', height: '80vh' }}
-          visible={showModal}
-          footer={null}
-          onCancel={() => setShowModal(false)}
-        >
-          {(() => {
-            const types = {
-              amenity: [],
-              service: [],
-              security: [],
-            };
-
-            amenity.forEach(({ name }, i) => {
-              const data = amenitiesData.find((am) => am.value === name)!;
-
-              // @ts-ignore
-              types[data.type].push({
-                key: `${data.value}-${i}`,
-                node: (
-                  <figure>
-                    <Image
-                      src={data.imageURL}
-                      alt={data.name}
-                      width={56}
-                      height={56}
-                      placeholder="blur"
-                      blurDataURL={`data:image/svg+xml;base64,${toBase64(
-                        shimmer('100%', '100%')
-                      )}`}
-                    />
-                    <figcaption>{data.name}</figcaption>
-                  </figure>
-                ),
-              });
-            });
-
-            const amenityArr = Object.values(types.amenity);
-            const serviceArr = Object.values(types.service);
-            const securityArr = Object.values(types.security);
-
-            return (
-              <>
-                {!!amenityArr.length && (
-                  <section style={{ marginBottom: '25px' }}>
-                    <h2>Comodidades:</h2>
-                    <Row gutter={[16, 24]}>
-                      {amenityArr.map(
-                        (am: { key: string; node: React.ReactNode }) => (
-                          <Col key={am.key} xs={24} sm={12} md={8} lg={6}>
-                            {am.node}
-                          </Col>
-                        )
-                      )}
-                    </Row>
-                  </section>
-                )}
-
-                {!!serviceArr.length && (
-                  <section style={{ marginBottom: '25px' }}>
-                    <h2>Servicios:</h2>
-                    <Row gutter={[16, 24]}>
-                      {serviceArr.map(
-                        (am: { key: string; node: React.ReactNode }) => (
-                          <Col key={am.key} xs={24} sm={12} md={8} lg={6}>
-                            {am.node}
-                          </Col>
-                        )
-                      )}
-                    </Row>
-                  </section>
-                )}
-
-                {!!securityArr.length && (
-                  <section>
-                    <h2>Seguridad:</h2>
-                    <Row gutter={[16, 24]}>
-                      {securityArr.map(
-                        (am: { key: string; node: React.ReactNode }) => (
-                          <Col key={am.key} xs={24} sm={12} md={8}>
-                            {am.node}
-                          </Col>
-                        )
-                      )}
-                    </Row>
-                  </section>
-                )}
+                      </Col>
+                    ) : null
+                  )}
+                </Row>
               </>
-            );
-          })()}
-        </Modal>
-      )}
+            )}
+          </>
+        )}
+
+        {!!amenity.length && (
+          <Modal
+            title="Los servicios que te ofrece esta propiedad:"
+            centered
+            width="90vw"
+            style={{ top: '0', zIndex: '3000' }}
+            bodyStyle={{ overflowY: 'scroll', height: '80vh' }}
+            visible={showModal}
+            footer={null}
+            onCancel={() => setShowModal(false)}
+          >
+            {(() => {
+              const types = {
+                amenity: [],
+                service: [],
+                security: [],
+              };
+
+              amenity.forEach(({ name }, i) => {
+                const data = amenitiesData.find((am) => am.value === name)!;
+
+                // @ts-ignore
+                types[data.type].push({
+                  key: `${data.value}-${i}`,
+                  node: (
+                    <figure>
+                      <div className="icon">
+                        <data.Icon />
+                      </div>
+                      <figcaption>{data.name}</figcaption>
+                    </figure>
+                  ),
+                });
+              });
+
+              const amenityArr = Object.values(types.amenity);
+              const serviceArr = Object.values(types.service);
+              const securityArr = Object.values(types.security);
+
+              return (
+                <>
+                  {!!amenityArr.length && (
+                    <section style={{ marginBottom: '25px' }}>
+                      <h3>Comodidades:</h3>
+                      <Row gutter={[16, 24]}>
+                        {amenityArr.map(
+                          (am: { key: string; node: React.ReactNode }) => (
+                            <Col key={am.key} xs={24} sm={12} md={8} lg={6}>
+                              {am.node}
+                            </Col>
+                          )
+                        )}
+                      </Row>
+                    </section>
+                  )}
+
+                  {!!serviceArr.length && (
+                    <section style={{ marginBottom: '25px' }}>
+                      <h3>Servicios:</h3>
+                      <Row gutter={[16, 24]}>
+                        {serviceArr.map(
+                          (am: { key: string; node: React.ReactNode }) => (
+                            <Col key={am.key} xs={24} sm={12} md={8} lg={6}>
+                              {am.node}
+                            </Col>
+                          )
+                        )}
+                      </Row>
+                    </section>
+                  )}
+
+                  {!!securityArr.length && (
+                    <section>
+                      <h3>Seguridad:</h3>
+                      <Row gutter={[16, 24]}>
+                        {securityArr.map(
+                          (am: { key: string; node: React.ReactNode }) => (
+                            <Col key={am.key} xs={24} sm={12} md={8}>
+                              {am.node}
+                            </Col>
+                          )
+                        )}
+                      </Row>
+                    </section>
+                  )}
+                </>
+              );
+            })()}
+          </Modal>
+        )}
+      </section>
+
       <style jsx>{`
+        section.container {
+          padding-bottom: 2rem;
+        }
+
         h1,
         h2,
         h3 {
@@ -439,9 +471,20 @@ export default function ShowListing({
         }
 
         figure {
+          align-items: center;
+          display: flex;
+          flex-direction: column;
           height: 100%;
+          justify-content: center;
           margin: 0;
+          row-gap: 0.5rem;
           text-align: center;
+        }
+
+        figure .icon {
+          height: 56px;
+          text-align: center;
+          width: 56px;
         }
 
         figcaption {
