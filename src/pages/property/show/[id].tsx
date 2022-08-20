@@ -50,7 +50,7 @@ export default function ShowListing({
     setAppShowFilters(false);
     setAppShowReturnButton(true);
     setAppShowContactAgent(true);
-    setAppLocation({ location: { ...data.location, listingId: listing.id } });
+    success && setAppLocation({ location: { ...data.location, listingId: listing.id } });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

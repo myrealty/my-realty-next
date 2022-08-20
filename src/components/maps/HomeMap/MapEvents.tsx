@@ -30,7 +30,7 @@ export default React.memo(function MapEvents({
 
   useEffect(() => {
     if (!runLocationEffect) return;
-    const Map = map.setView(location as LatLngExpression, map.getZoom());
+    const Map = map.setView(location as LatLngExpression, 6);
     const sw = Map.getBounds().getSouthWest();
     const ne = Map.getBounds().getNorthEast();
     setBounds({

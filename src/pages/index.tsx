@@ -195,6 +195,8 @@ export default function HomePage() {
         filters: window.location.search,
       });
 
+      setAppLoading(false);
+
       setData(data.listings);
       setPagination((state) => ({
         ...state,
@@ -204,6 +206,7 @@ export default function HomePage() {
       }));
       setHasMore(data.totalPages > 1);
       setCoordinates(null);
+      setLoading(false);
 
       if (data.total === 0) {
         setLoading(false);
@@ -270,10 +273,6 @@ export default function HomePage() {
                                       blurDataURL={`data:image/svg+xml;base64,${toBase64(
                                         shimmer('100%', '100%')
                                       )}`}
-                                      onLoadingComplete={() => {
-                                        setLoading(false);
-                                        setAppLoading(false);
-                                      }}
                                     />
                                   </div>
                                 </a>

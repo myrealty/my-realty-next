@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, Slice } from '@reduxjs/toolkit';
 import { Location } from 'api/listing';
 
 export interface AppReducer {
@@ -19,7 +19,7 @@ const initialState: AppReducer = {
   appLocation: null,
 };
 
-export const appSlice = createSlice({
+export const appSlice: Slice = createSlice({
   name: 'app',
   initialState,
   reducers: {
